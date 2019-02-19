@@ -30,6 +30,6 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/calendarView"
-        tools:listitem="@layout/listitem_sn_schedule_item" />
+        tools:listitem="@layout/listitem_sn_schedule_item_in_dashboard" />
 
 </android.support.constraint.ConstraintLayout>

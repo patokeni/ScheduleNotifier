@@ -95,18 +95,8 @@ public class NotificationsFragment extends Fragment implements IFragment {
         unbinder.unbind();
     }
 
-    @Override
-    public String tag() {
-        return "SN_NT";
-    }
-
-    @Override
-    public int menuID() {
-        return R.id.nav_sn_notifications;
-    }
-
     @OnClick({R2.id.floatingActionButtonBack})
-    public void onButtonBackClicked(){
+    public void onButtonBackClicked() {
         switch (statusType) {
             //当浏览计划表内容模式时
             case NOTIFICATIONS_LIST:
@@ -195,7 +185,7 @@ public class NotificationsFragment extends Fragment implements IFragment {
      * @param pos    The position of the view in the adapter.
      * @param id     The row id of the item that was clicked.
      */
-    //@Override
+    //比较特殊，不用ButterKnife
     private void onItemClick(AdapterView<?> parent, View view, int pos, long id) {
         switch (statusType) {
             //当浏览计划表模式时
@@ -259,8 +249,15 @@ public class NotificationsFragment extends Fragment implements IFragment {
                                     //留着当笑话看
                                     //.setView(spinner)
                                     .setMessage(String.format("你确认要删除%s吗", schedule.getName()))
-                                    .setPositiveButton("确认", ((dialog, which) -> Schedules.remove(schedule)))
-                                    .setNegativeButton("取消", ((dialog, which) -> dialog.dismiss()))
+                                    .setPositiveButton("删除", ((dialog, which) -> {
+                                        Schedules.remove(schedule);
+                                        Main.getMainActivity().prepareSnackbar("已删除", Snackbar.LENGTH_LONG)
+                                                .setAction("撤销", (view) -> {
+                                                    Schedules.addSchedule(schedule);
+                                                })
+                                                .show();
+                                    }))
+                                    .setNegativeButton("取消", ((dialog, which) -> dialog.cancel()))
                                     //FIXED:这里显示时不知为何会报IllegalStateException
                                     .show();
                         }
@@ -271,21 +268,49 @@ public class NotificationsFragment extends Fragment implements IFragment {
             case NOTIFICATIONS_LIST:
                 ScheduleItem scheduleItem = notificationAdapter.getItem(pos);
 
-                new AlertDialog.Builder(this.getContext())
-                        .setTitle("是否删除计划项目")
-                        .setCancelable(true)
-                        .setPositiveButton("确认", ((dialog, which) -> {
-                            notificationAdapter.getSchedule().remove(scheduleItem);
-                            notificationAdapter.getSchedule().sort();
-                            Main.getMainActivity().prepareSnackbar(String.format("已删除(%s)", scheduleItem.getDesc()), Snackbar.LENGTH_INDEFINITE)
-                                    .setAction("撤销", (View v) -> {
-                                        notificationAdapter.getSchedule().add(scheduleItem);
-                                        notificationAdapter.getSchedule().sort();
+                showContextMenu(listView, scheduleItem.getDesc(), R.menu.menu_sn_schedule_item_operation, new Callback() {
+                    @Override
+                    public boolean Do(Object... objects) {
+                        MenuItem menuItem = (MenuItem) objects[0];
+                        if (menuItem.getItemId() == R.id.menu_sn_schedule_item_oper_edit) {
+                            new AddScheduleItemDialog().edit(getContext(), new Callback() {
+                                @Override
+                                public boolean Do(Object... objects) {
+                                    return false;
+                                }
+                            }, scheduleItem);
+                        } else if (menuItem.getItemId() == R.id.menu_sn_schedule_item_oper_set_custom_message) {
+                            EditText editText = new EditText(getContext());
+                            editText.setHint("输入自定义提醒");
+                            new AlertDialog.Builder(getContext())
+                                    .setTitle("设置自定义提醒")
+                                    .setView(editText)
+                                    .setPositiveButton("确定", (dialog, which) -> {
+                                        scheduleItem.setCustomMessage(editText.getText().toString());
+                                        dialog.cancel();
+                                    })
+                                    .setNegativeButton("取消", (dialog, whick) -> {
+                                        dialog.cancel();
                                     })
                                     .show();
-                        }))
-                        .setNegativeButton("取消", ((dialog, which) -> dialog.dismiss()))
-                        .show();
+                        } else if (menuItem.getItemId() == R.id.menu_sn_schedule_item_oper_delete) {
+                            new AlertDialog.Builder(getContext())
+                                    .setTitle("确定？")
+                                    .setMessage("你确定要删除此计划项目")
+                                    .setPositiveButton("删除", (dialog, which) -> {
+                                        boolean isCustomMessage = scheduleItem.isCustomMessage();
+                                        String customMessage = scheduleItem.getMessage();
+                                        scheduleItem.parent.remove(scheduleItem);
+                                    })
+                                    .setNegativeButton("取消", ((dialog, which) -> {
+                                        dialog.cancel();
+                                    }))
+                                    .show();
+                        }
+
+                        return false;
+                    }
+                });
                 break;
         }
         return true;

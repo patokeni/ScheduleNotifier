@@ -1,3 +1,30 @@
 <resources>
-    <string name="app_name">ScheduleNotifier</string>
+    <string name="app_name">Xianxian Center</string>
+    <string name="title_dashboard">概览</string>
+    <string name="title_notifications">提醒列表</string>
+    <string name="author">By xianxian</string>
+    <string name="title_activity_main">MainActivity</string>
+
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
+
+    <string name="action_settings">设置</string>
+    <string name="string_end_time">结束时间</string>
+    <string name="string_start_time">开始时间</string>
+    <string name="schedule_type">计划类型</string>
+    <string name="checkbox_isNotify">提醒</string>
+    <string name="string_givedID">将要被赋予的ID：</string>
+    <string name="string_cannot_empty">不能为空</string>
+    <string name="title_activity_wrong_topic">WrongTopicActivity</string>
+    <string name="title_home">Home</string>
+    <string name="drawer_open">打开抽屉</string>
+    <string name="drawer_close">关闭抽屉</string>
+
+    <string name="baidu_app_key">srsg7wUhe6WYGGtOXGAhavP6</string>
+    <string name="baidu_secret_key">WZCSyIRFIZxIAnTAeoXDKRAhbohh9nOo</string>
+
+    <string name="schedule_notify_system">计划提醒系统</string>
+    <string name="string_main_page">主页</string>
+    <string name="add_schedule">添加计划表</string>
+    <string name="more">...</string>
 </resources>

@@ -10,16 +10,21 @@ import static xianxian.center.schedulenotifier.Schedule.SCHEDULE_TIME_FORMAT;
  */
 
 public class ScheduleItem {
-    public Schedule parent;
+    public transient Schedule parent;
+    public transient ScheduleItem prev;
+    public transient ScheduleItem next;
     private int id = -1;
     private Date startTime = null;
     private Date endTime = null;
-    private String type;
+    private Type type;
     private boolean isNeedNotify = false;
     private boolean isCustomMessage = false;
     private String customMessage;
 
-    public ScheduleItem(int id, Date startTime, Date endTime, String type, boolean isNeedNotify) {
+    ScheduleItem() {
+    }
+
+    public ScheduleItem(int id, Date startTime, Date endTime, Type type, boolean isNeedNotify) {
         this.id = id;
         this.startTime = startTime;
         this.endTime = endTime;
@@ -81,12 +86,13 @@ public class ScheduleItem {
         return endTime;
     }
 
-    public String getType() {
+    public Type getType() {
         return type;
     }
 
-    public void setType(String Type) {
-        this.type = Type;
+    public void setType(String type) {
+        this.type = Types.getOrCreate(type);
+        this.type.addUser(this);
     }
 
     public boolean isNeedNotify() {
@@ -102,12 +108,17 @@ public class ScheduleItem {
     }
 
     public void setCustomMessage(String customMessage) {
-        this.isCustomMessage = true;
-        this.customMessage = customMessage;
+        if (customMessage != null) {
+            this.isCustomMessage = true;
+            this.customMessage = customMessage;
+        } else {
+            this.isCustomMessage = false;
+            this.customMessage = null;
+        }
     }
 
     public String getMessage() {
-        return isCustomMessage ? customMessage : String.format(SNSettings.getProp(SNSettings.SETTINGS_KEY_NOTIFY_TEMPLE), getType());
+        return isCustomMessage ? customMessage : type.getMessage();
     }
 
     public boolean before(ScheduleItem s1) {

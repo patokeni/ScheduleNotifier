@@ -2,6 +2,7 @@ package xianxian.center.schedulenotifier;
 
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.MenuRes;
 import android.support.annotation.NonNull;
@@ -13,12 +14,10 @@ import android.view.LayoutInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.AdapterView;
 import android.widget.CalendarView;
 import android.widget.ListView;
 import android.widget.Spinner;
 
-import java.io.IOException;
 import java.text.ParseException;
 import java.util.Locale;
 import java.util.Observable;
@@ -49,16 +48,6 @@ public class DashboardFragment extends Fragment implements Observer, IFragment {
         // Required empty public constructor
     }
 
-    /**
-     * Use this factory method to create a new instance of
-     * this fragment using the provided parameters.
-     *
-     * @return A new instance of fragment DashboardFragment.
-     */
-    public static DashboardFragment newInstance() {
-        return new DashboardFragment();
-    }
-
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -72,7 +61,8 @@ public class DashboardFragment extends Fragment implements Observer, IFragment {
         unbinder = ButterKnife.bind(this, view);
         calendarView.setOnDateChangeListener(this::onCalendarViewDateChange);
         registerForContextMenu(calendarView);
-        listViewScheduleOfDay.setAdapter(notificationAdapter = new Adapters.ScheduleItemAdapter(getContext()));
+        notificationAdapter = new Adapters.ScheduleItemAdapter(getContext());
+        listViewScheduleOfDay.setAdapter(notificationAdapter);
         return view;
     }
 
@@ -86,7 +76,8 @@ public class DashboardFragment extends Fragment implements Observer, IFragment {
         } catch (ParseException e) {
             e.printStackTrace();
         }
-
+        //TTSFactory.getEngine("sn").textToSpeech(DateUtils.format(year, actuallyMonth, dayOfMonth),Locale.CHINESE);
+        this.getContext().startService(new Intent(this.getContext(), NotifyService.class));
         showContextMenu(view, "这天的计划表为:" + schedule.getName(), R.menu.menu_sn_calendar_operation, new Callback() {
             @Override
             public boolean Do(Object... objects) {
@@ -158,44 +149,6 @@ public class DashboardFragment extends Fragment implements Observer, IFragment {
         menu.setHeaderTitle(contextMenuTitle);
     }
 
-    private void onItemClicked(AdapterView<?> adapterView, View view, int pos, long id) {
-        //显示一个对话框来设置一天的计划表
-        final Spinner spinner = new Spinner(this.getContext());
-        //初始化计划表适配器
-        Adapters.ScheduleAdapter adapter = new Adapters.ScheduleAdapter(this.getContext());
-        //设置适配器
-        spinner.setAdapter(adapter);
-        new AlertDialog.Builder(this.getContext())
-                .setTitle("设置这天的计划表")
-                .setView(spinner)
-                .setCancelable(true)
-                .setPositiveButton("确认", ((dialog, which) -> {
-                    ((Adapters.ScheduleAdapter) spinner.getAdapter()).onDestroy();
-                    Schedule schedule = adapter.getItem(spinner.getSelectedItemPosition());
-                    if (pos < 7) {
-                        Schedules.addDailySchedule(pos, schedule);
-                        try {
-                            Schedules.saveDailySchedule();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    } else {
-                        String key = (String) Schedules.getSpecificDays().keySet().toArray()[pos - 7];
-                        Schedules.addSpecificDay(key, schedule);
-                        try {
-                            Schedules.saveSpecificDays();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                }))
-                .setNegativeButton("取消", ((dialog, which) -> {
-                    ((Adapters.ScheduleAdapter) spinner.getAdapter()).onDestroy();
-                    dialog.dismiss();
-                }))
-                .show();
-    }
-
     @Override
     public void onDetach() {
         super.onDetach();
@@ -207,17 +160,9 @@ public class DashboardFragment extends Fragment implements Observer, IFragment {
         notificationAdapter.onDestroy();
         dailySchedulesObservable.deleteObserver(this);
         specificDaysObservable.deleteObserver(this);
+        onContextMenuSelected = null;
+        notificationAdapter = null;
         unbinder.unbind();
-    }
-
-    @Override
-    public String tag() {
-        return "SN_DB";
-    }
-
-    @Override
-    public int menuID() {
-        return R.id.nav_sn_dashboard;
     }
 
     /**

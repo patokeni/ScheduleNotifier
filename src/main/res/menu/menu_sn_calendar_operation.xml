@@ -3,10 +3,8 @@
     <!--><-->
     <item
         android:id="@+id/menu_sn_calendar_oper_set_schedule"
-        android:title="设置计划"
-        />
+        android:title="设置计划" />
     <item
         android:id="@+id/menu_sn_calendar_oper_set_default"
-        android:title="恢复默认"
-        />
+        android:title="恢复默认" />
 </menu>

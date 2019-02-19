@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Observable;
+import java.util.Observer;
 
 import xianxian.center.Constants;
 import xianxian.center.utils.FileUtils;
@@ -34,20 +35,27 @@ import xianxian.center.utils.FileUtils;
  * 有关增删的操作，大部分完成后都会储存到文件
  */
 
-public class Schedules {
+public class Schedules implements Observer {
     //用于监听数据变化(我猜RxJava不是这个用处吧)
-    public static final Observable dailySchedulesObservable = new DataObservable();
-    public static final Observable specificDaysObservable = new DataObservable();
-    public static final Observable schedulesObservable = new DataObservable();
+    public static final Observable dailySchedulesObservable = new DataObservable("SN/DailySchedule");
+    public static final Observable specificDaysObservable = new DataObservable("SN/SpecificDays");
+    public static final Observable schedulesObservable = new DataObservable("SN/Schedules");
     //日常的计划
     private final static Map<Integer, Schedule> dailySchedules = new LinkedHashMap<>(7);
     //特殊日子的计划
     private final static Map<String, Schedule> specificDays = new LinkedHashMap<>();
     //缓存所有的计划表
     private static final List<Schedule> schedules = new ArrayList<>();
+    private static final Schedules INSTANCE = new Schedules();
     public static SimpleDateFormat SPECIFIC_DAY_FORMAT = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
 
+    private Schedules() {
+    }
+
     public static void load() {
+        ObserverDebug.debug(Schedules.dailySchedulesObservable, Schedules.schedulesObservable, Schedules.specificDaysObservable);
+        //必须先解析类型
+        Types.load();
         //解析计划表配置文件
         parseSchedulesStorageFile();
         //解析日常计划表
@@ -55,107 +63,12 @@ public class Schedules {
         //解析特殊日子计划表
         parseSpecificDaysConfig();
 
+        schedulesObservable.addObserver(INSTANCE);
+        dailySchedulesObservable.addObserver(INSTANCE);
+        specificDaysObservable.addObserver(INSTANCE);
     }
 
-    public static void remove(String scheduleName) {
-        Iterator<Schedule> iterator = schedules.iterator();
-        while (iterator.hasNext())
-            if (iterator.next().getName().equals(scheduleName)) {
-                iterator.remove();
-                schedulesObservable.notifyObservers();
-            }
-        try {
-            saveSchedules();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public static void remove(Schedule schedule) {
-        schedules.remove(schedule);
-        schedulesObservable.notifyObservers();
-        try {
-            saveSchedules();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public static Schedule removeSpecificDay(String dateString) {
-        Schedule old = specificDays.remove(dateString);
-        specificDaysObservable.notifyObservers();
-        try {
-            saveSpecificDays();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return old;
-    }
-
-    public static void removeSpecificDay(Date date) {
-        removeSpecificDay(SPECIFIC_DAY_FORMAT.format(date));
-    }
-
-    /**
-     * 添加一个新的空计划表到schedules
-     *
-     * @param name
-     */
-    public static void addNewSchedule(String name) {
-        //初始化一个空计划表
-        Schedule schedule = Schedule.newSchedule(name);
-        //往schedules添加计划表
-        schedules.add(schedule);
-        schedulesObservable.notifyObservers(schedule);
-        try {
-            //尝试保存
-            saveSchedules();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public static void addSchedule(Schedule schedule) {
-        //往schedules添加计划表
-        schedules.add(schedule);
-        schedulesObservable.notifyObservers(schedule);
-        try {
-            //尝试保存
-            saveSchedules();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public static void addDailySchedule(int dayOfWeek, Schedule schedule) {
-        Map.Entry<Integer, Schedule> dailyScheduleEntry = new LinkedHashMap.SimpleEntry<>(dayOfWeek, schedule);
-        dailySchedules.put(dailyScheduleEntry.getKey(), dailyScheduleEntry.getValue());
-        dailySchedulesObservable.notifyObservers(dailyScheduleEntry);
-
-        int today = Calendar.getInstance().get(Calendar.DAY_OF_WEEK);
-        if (dayOfWeek == today && !isInSpecificDay(new Date()))
-            NotifyService.onScheduleOfTodayChanged.notifyObservers(dailyScheduleEntry.getValue());
-        try {
-            saveDailySchedule();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public static void addSpecificDay(String dateString, Schedule schedule) {
-        Map.Entry<String, Schedule> specificDayEntry = new LinkedHashMap.SimpleEntry<>(dateString, schedule);
-        specificDays.put(dateString, schedule);
-        specificDaysObservable.notifyObservers(specificDayEntry);
-        String nowDateString = SPECIFIC_DAY_FORMAT.format(new Date());
-        if (specificDayEntry.getKey().equals(nowDateString))
-            NotifyService.onScheduleOfTodayChanged.notifyObservers(specificDayEntry.getValue());
-        try {
-            saveSpecificDays();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
+    ///解析部分开始
 
     /**
      * 默认解析{@link Constants#SCHEDULES_CONFIG_XML}
@@ -408,6 +321,8 @@ public class Schedules {
         os.close();
     }
 
+    ///解析部分结束
+
     public static Schedule getDailyScheduleByDate(Date date) {
         Calendar calendar = Calendar.getInstance();
         calendar.setTime(date);
@@ -425,9 +340,109 @@ public class Schedules {
         return Schedule.EMPTY;
     }
 
+    public static void remove(String scheduleName) {
+        Iterator<Schedule> iterator = schedules.iterator();
+        while (iterator.hasNext())
+            if (iterator.next().getName().equals(scheduleName)) {
+                iterator.remove();
+                schedulesObservable.notifyObservers();
+            }
+        try {
+            saveSchedules();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void remove(Schedule schedule) {
+        schedules.remove(schedule);
+        schedulesObservable.notifyObservers();
+        try {
+            saveSchedules();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static Schedule removeSpecificDay(String dateString) {
+        Schedule old = specificDays.remove(dateString);
+        specificDaysObservable.notifyObservers();
+        try {
+            saveSpecificDays();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return old;
+    }
+
+    public static void removeSpecificDay(Date date) {
+        removeSpecificDay(SPECIFIC_DAY_FORMAT.format(date));
+    }
+
+    /**
+     * 添加一个新的空计划表到schedules
+     *
+     * @param name
+     */
+    public static void addNewSchedule(String name) {
+        //初始化一个空计划表
+        Schedule schedule = Schedule.newSchedule(name);
+        //往schedules添加计划表
+        schedules.add(schedule);
+        schedulesObservable.notifyObservers(schedule);
+        try {
+            //尝试保存
+            saveSchedules();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void addSchedule(Schedule schedule) {
+        //往schedules添加计划表
+        schedules.add(schedule);
+        schedulesObservable.notifyObservers(schedule);
+        try {
+            //尝试保存
+            saveSchedules();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void addDailySchedule(int dayOfWeek, Schedule schedule) {
+        Map.Entry<Integer, Schedule> dailyScheduleEntry = new LinkedHashMap.SimpleEntry<>(dayOfWeek, schedule);
+        dailySchedules.put(dailyScheduleEntry.getKey(), dailyScheduleEntry.getValue());
+        dailySchedulesObservable.notifyObservers(dailyScheduleEntry);
+
+        int today = Calendar.getInstance().get(Calendar.DAY_OF_WEEK);
+        if (dayOfWeek == today && !isInSpecificDay(new Date()))
+            NotifyService.onScheduleOfTodayChanged.notifyObservers(dailyScheduleEntry.getValue());
+        try {
+            saveDailySchedule();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void addSpecificDay(String dateString, Schedule schedule) {
+        Map.Entry<String, Schedule> specificDayEntry = new LinkedHashMap.SimpleEntry<>(dateString, schedule);
+        specificDays.put(dateString, schedule);
+        specificDaysObservable.notifyObservers(specificDayEntry);
+        String nowDateString = SPECIFIC_DAY_FORMAT.format(new Date());
+        if (specificDayEntry.getKey().equals(nowDateString))
+            NotifyService.onScheduleOfTodayChanged.notifyObservers(specificDayEntry.getValue());
+        try {
+            saveSpecificDays();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+
     /**
      * @param date
-     * @return 可能为null
+     * @return 不可能为null，但有Schedule.EMPTY
      */
     public static Schedule getScheduleByDate(Date date) {
         //将date格式化
@@ -435,12 +450,12 @@ public class Schedules {
         //如果在特殊日子里就加载特殊日子计划表
         if (specificDays.containsKey(dateString))
             return specificDays.get(dateString);
-        //不然就加载普通计划表
+        //不然就加载日常计划表
         Calendar calendar = Calendar.getInstance();
         calendar.setTime(date);
-        int day = calendar.get(Calendar.DAY_OF_WEEK);
         //NOTE: 因为程序中范围为(0~6)，Calendar范围为(1~7)
-        return dailySchedules.get(day - 1) == null ? Schedule.EMPTY : dailySchedules.get(day - 1);
+        int actuallyDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK) - 1;
+        return dailySchedules.get(actuallyDayOfWeek) == null ? Schedule.EMPTY : dailySchedules.get(actuallyDayOfWeek);
     }
 
     public static Schedule getScheduleByDate(String dateString) throws ParseException {
@@ -491,6 +506,32 @@ public class Schedules {
     public static boolean isInSpecificDay(Date date) {
         String dateString = SPECIFIC_DAY_FORMAT.format(date);
         return specificDays.containsKey(dateString);
+    }
+
+    /**
+     * @return 只有时分秒的时间
+     */
+    public static Date getTime(Date date) {
+        try {
+            return Schedule.SCHEDULE_TIME_FORMAT.parse(Schedule.SCHEDULE_TIME_FORMAT.format(date));
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    /**
+     * This method is called whenever the observed object is changed. An
+     * application calls an <tt>Observable</tt> object's
+     * <code>notifyObservers</code> method to have all the object's
+     * observers notified of the change.
+     *
+     * @param o   the observable object.
+     * @param arg an argument passed to the <code>notifyObservers</code>
+     */
+    @Override
+    public void update(Observable o, Object arg) {
+
     }
 }
 

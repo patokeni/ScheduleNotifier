@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
-        android:id="@+id/menu_sn_oper_edit"
-        android:title="编辑"
-        />
+        android:id="@+id/menu_sn_schedule_item_oper_edit"
+        android:title="编辑" />
     <item
-        android:id="@+id/menu_sn_calendar_oper_set_default"
-        android:title="删除"
-        />
+        android:id="@+id/menu_sn_schedule_item_oper_set_custom_message"
+        android:title="自定义提醒" />
+    <item
+        android:id="@+id/menu_sn_schedule_item_oper_delete"
+        android:title="删除" />
 </menu>

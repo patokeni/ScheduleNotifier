@@ -1,2 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="xianxian.center.schedulenotifier" />
+    package="xianxian.center.schedulenotifier">
+
+    <uses-permission android:name="android.permission.VIBRATE" />
+</manifest>

@@ -3,7 +3,6 @@ package xianxian.center.schedulenotifier;
 import android.content.Context;
 import android.content.Intent;
 import android.media.AudioManager;
-import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.view.MenuItem;
 
@@ -19,7 +18,6 @@ public class ScheduleNotifier implements IModule {
     public void init(Context context) {
         this.context = context;
         Schedules.load();
-        //ObserverDebug.load(Schedules.dailySchedulesObservable, Schedules.schedulesObservable, Schedules.specificDaysObservable, NotifyService.onDoingScheduleItemChanged, NotifyService.onScheduleOfTodayChanged);
 
         TTSFactory.createTTSEngine("sn", context).setAudioStream(AudioManager.STREAM_NOTIFICATION);
 
@@ -50,20 +48,13 @@ public class ScheduleNotifier implements IModule {
                 FragmentManager fragmentManager = (FragmentManager) objects[0];
                 MenuItem item = (MenuItem) objects[1];
                 if (item.getItemId() == R.id.nav_sn_dashboard) {
-                    Fragment sn_dbFragment = fragmentManager.findFragmentByTag("sn_db");
-
-                    fragmentManager.beginTransaction().replace(R.id.container, sn_dbFragment == null ? DashboardFragment.newInstance() : sn_dbFragment, "sn_db").addToBackStack("sn_db").commit();
-                    Main.showingFragment = sn_dbFragment;
+                    Main.getMainActivity().setShowingFragment("sn_db", DashboardFragment.class);
                 } else if (item.getItemId() == R.id.nav_sn_notifications) {
-                    Fragment sn_ncFragment = fragmentManager.findFragmentByTag("sn_nc");
-
-                    fragmentManager.beginTransaction().replace(R.id.container, sn_ncFragment == null ? NotificationsFragment.newInstance() : sn_ncFragment, "sn_nc").addToBackStack("sn_nc").commit();
-                    Main.showingFragment = sn_ncFragment;
+                    Main.getMainActivity().setShowingFragment("sn_nc", NotificationsFragment.class);
+                } else if (item.getItemId() == R.id.nav_sn_types) {
+                    Main.getMainActivity().setShowingFragment("sn_types", TypesFragment.class);
                 } else if (item.getItemId() == R.id.nav_sn_settings) {
-                    Fragment sn_setFragment = fragmentManager.findFragmentByTag("sn_set");
-
-                    fragmentManager.beginTransaction().replace(R.id.container, sn_setFragment == null ? SettingsFragment.newInstance() : sn_setFragment, "sn_set").addToBackStack("sn_set").commit();
-                    Main.showingFragment = sn_setFragment;
+                    Main.getMainActivity().setShowingFragment("sn_set", SettingsFragment.class);
                 }
                 return false;
             }

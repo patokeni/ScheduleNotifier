@@ -1,5 +1,6 @@
 package xianxian.center.schedulenotifier;
 
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v7.preference.PreferenceScreen;
@@ -14,8 +15,6 @@ public class SettingsFragment extends android.support.v7.preference.PreferenceFr
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        //addPreferencesFromResource(R2.xml.sn_preference);
-
     }
 
     /**
@@ -30,16 +29,6 @@ public class SettingsFragment extends android.support.v7.preference.PreferenceFr
      */
     @Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
-        //setPreferencesFromResource(R,null);
-    }
-
-    @Override
-    public String tag() {
-        return "sn_set";
-    }
-
-    @Override
-    public int menuID() {
-        return R.id.nav_sn_settings;
+        addPreferencesFromResource(R.xml.sn_preference);
     }
 }

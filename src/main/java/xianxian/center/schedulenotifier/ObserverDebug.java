@@ -1,21 +1,26 @@
 package xianxian.center.schedulenotifier;
 
+import android.support.annotation.NonNull;
 import android.util.Log;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Observable;
 import java.util.Observer;
 
 public class ObserverDebug implements Observer {
     public static ObserverDebug INSTANCE = new ObserverDebug();
-    private static List<Observable> observables;
+    private static List<Observable> observables = new ArrayList<>();
 
     private ObserverDebug() {
     }
 
-    public static void load(Observable... observable) {
-        observables.addAll(Arrays.asList(observable));
+    public static void debug(@NonNull Observable... observable) {
+        for (Observable targetObservable : observable) {
+            targetObservable.addObserver(INSTANCE);
+            observables.add(targetObservable);
+        }
+        //observables.addAll(Arrays.asList(observable));
     }
 
     public static void dispose() {
@@ -36,6 +41,7 @@ public class ObserverDebug implements Observer {
      */
     @Override
     public void update(Observable o, Object arg) {
-        Log.i("ObserverDebug", o + " " + arg);
+        if (BuildConfig.DEBUG)
+            Log.i("ObserverDebug", o + " " + arg);
     }
 }

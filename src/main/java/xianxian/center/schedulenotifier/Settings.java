@@ -8,7 +8,7 @@ import java.util.Properties;
 import xianxian.center.Constants;
 import xianxian.center.utils.FileUtils;
 
-public class SNSettings {
+public class Settings {
     //
     public static final String SETTINGS_KEY_NOTIFY_TEMPLE = "settingsNotifyTemple";
     public static String SETTINGS_DEFAULT_VALUE_NOTIFY_TEMPLE = "注意，注意，现在是%s时间，请立即开始";

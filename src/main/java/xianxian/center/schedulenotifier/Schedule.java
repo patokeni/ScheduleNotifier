@@ -15,7 +15,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Serializable;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -32,21 +31,25 @@ public class Schedule implements Serializable {
     //一个空计划表
     public static final Schedule EMPTY = new Schedule("无");
     //用于监听数据变化
-    public final Observable scheduleObservable = new DataObservable();
+    public transient final Observable scheduleObservable;
+    public transient ScheduleItem head = new ScheduleItem();
+    public transient ScheduleItem tail = new ScheduleItem();
     private List<ScheduleItem> scheduleItems = new ArrayList<>();
     private String name;
     private File storageFile;
 
     private Schedule(String name) {
         this.name = name;
+        scheduleObservable = new DataObservable("ERROR!UNSUPPORTED!");
     }
 
     public Schedule(String name, File storageFile) {
         this.storageFile = storageFile;
         this.name = name;
-
+        scheduleObservable = new DataObservable("SN/Schedule/" + name);
+        ObserverDebug.debug(scheduleObservable);
         try {
-            loadScheduleItemsFromFile();
+            loadFromFile();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -55,10 +58,11 @@ public class Schedule implements Serializable {
     public Schedule(String name, List<ScheduleItem> scheduleItems) throws IOException {
         this.scheduleItems = scheduleItems;
         this.name = name;
-
+        scheduleObservable = new DataObservable("SN/Schedule/" + name);
+        ObserverDebug.debug(scheduleObservable);
         this.storageFile = new File(Constants.SCHEDULE_XML_DIR.getPath() + File.separator + name + ".xml");
         FileUtils.checkFileExistOrCreate(storageFile);
-        saveScheduleItems();
+        saveToFile();
     }
 
     public static Schedule newSchedule(String name) {
@@ -73,7 +77,7 @@ public class Schedule implements Serializable {
     }
 
     /**
-     * 对scheduleItems排序，并储存到文件
+     * 对scheduleItems排序
      */
     public void sort() {
         ScheduleItem[] scheduleItems = new ScheduleItem[this.scheduleItems.size()];
@@ -87,19 +91,33 @@ public class Schedule implements Serializable {
         for (ScheduleItem scheduleItem :
                 scheduleItems) {
             int index = this.scheduleItems.indexOf(scheduleItem);
+            if (index == 0) {
+                scheduleItem.prev = head;
+                if (this.scheduleItems.size() != 1)
+                    scheduleItem.next = this.scheduleItems.get(index + 1);
+                else
+                    scheduleItem.next = tail;
+            } else if (index == this.scheduleItems.size() - 1) {
+                scheduleItem.prev = this.scheduleItems.get(index - 1);
+                scheduleItem.next = tail;
+            } else {
+                scheduleItem.prev = this.scheduleItems.get(index - 1);
+                scheduleItem.next = this.scheduleItems.get(index + 1);
+            }
             scheduleItem.setId(index);
         }
+        this.scheduleObservable.notifyObservers();
     }
 
     public List<ScheduleItem> getScheduleItems() {
         return scheduleItems;
     }
 
-    public void saveScheduleItems() throws IOException {
-        saveScheduleItems(storageFile);
+    public void saveToFile() throws IOException {
+        saveToFile(storageFile);
     }
 
-    public void saveScheduleItems(File file) throws IOException {
+    public void saveToFile(File file) throws IOException {
         this.sort();
         OutputStream os = null;
 
@@ -126,7 +144,7 @@ public class Schedule implements Serializable {
             xmlSerializer.endTag(null, "endTime");
 
             xmlSerializer.startTag(null, "Type");
-            xmlSerializer.text(si.getType());
+            xmlSerializer.text(si.getType().getTypeName());
             xmlSerializer.endTag(null, "Type");
 
             xmlSerializer.startTag(null, "isNeedNotify");
@@ -147,16 +165,12 @@ public class Schedule implements Serializable {
     }
 
     public ScheduleItem getDoingScheduleItem() throws NoScheduleItemException {
-        Date now = new Date();
-        try {
-            now = SCHEDULE_TIME_FORMAT.parse(SCHEDULE_TIME_FORMAT.format(new Date()));
-        } catch (ParseException e) {
-            e.printStackTrace();
-        }
+        Date now = Schedules.getTime(new Date());
         for (ScheduleItem scheduleItem : scheduleItems) {
             if (scheduleItem != null
                     && scheduleItem.getStartTimeDate() != null
                     && scheduleItem.getEndTimeDate() != null) {
+                //如果现在的时间在开始时间之后或开始时间，且在结束时间之前
                 if ((now.after(scheduleItem.getStartTimeDate()) || now.getTime() == scheduleItem.getStartTimeDate().getTime())
                         && now.before(scheduleItem.getEndTimeDate())) {
                     return scheduleItem;
@@ -166,7 +180,33 @@ public class Schedule implements Serializable {
         throw new NoScheduleItemException();
     }
 
-    public void loadScheduleItemsFromFile() throws IOException {
+    public ScheduleItem getNextScheduleItem() {
+        ScheduleItem nowScheduleItem = null;
+        try {
+            nowScheduleItem = getDoingScheduleItem();
+        } catch (NoScheduleItemException e) {
+            //e.printStackTrace();
+            //no-op
+        }
+
+        if (nowScheduleItem == null) {
+            Date now = Schedules.getTime(new Date());
+
+            for (ScheduleItem scheduleItem :
+                    scheduleItems) {
+                if (scheduleItem.next == tail)
+                    return tail;
+                else if (now.after(scheduleItem.getEndTimeDate()) && now.before(scheduleItem.next.getStartTimeDate()))
+                    return scheduleItem.next;
+                else if (now.before(scheduleItem.getStartTimeDate()) && scheduleItems.indexOf(scheduleItem) == 0)
+                    return scheduleItem;
+            }
+        } else
+            return nowScheduleItem.next;
+        return null;
+    }
+
+    public void loadFromFile() throws IOException {
         if (!storageFile.exists()) {
             FileUtils.checkFileExistOrCreate(storageFile);
         }
@@ -189,7 +229,7 @@ public class Schedule implements Serializable {
 
             while (eventType != XmlPullParser.END_DOCUMENT) {
                 String tag = xmlPullParser.getName();
-                Log.d("Center/SN", "Tag: " + tag);
+                //Log.d("Center/SN", "Tag: " + tag);
                 switch (eventType) {
                     case XmlPullParser.START_TAG:
                         if ("Schedule".equals(tag)) ;
@@ -216,7 +256,7 @@ public class Schedule implements Serializable {
                             scheduleObservable.notifyObservers(scheduleItem);
                             if (isCustomMessage)
                                 scheduleItem.setCustomMessage(customMessage);
-                            scheduleItems.add(scheduleItem);
+                            add(scheduleItem);
                         }
                         break;
                 }
@@ -251,33 +291,40 @@ public class Schedule implements Serializable {
     }
 
     public void add(ScheduleItem scheduleItem) {
+        if (scheduleItems.size() == 0) {
+            scheduleItem.prev = head;
+            scheduleItem.next = tail;
+        } else {
+            ScheduleItem last = scheduleItems.get(scheduleItems.size() - 1);
+            scheduleItem.prev = last;
+            scheduleItem.next = tail;
+        }
+
         scheduleItems.add(scheduleItem);
         this.sort();
         scheduleObservable.notifyObservers();
         try {
-            saveScheduleItems();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void remove(int id) {
-        scheduleItems.remove(id);
-        this.sort();
-        scheduleObservable.notifyObservers();
-        try {
-            saveScheduleItems();
+            saveToFile();
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
     public void remove(ScheduleItem scheduleItem) {
+        if (scheduleItems.size() == 1) {
+            head.next = tail;
+            tail.prev = head;
+        } else {
+            ScheduleItem prev = scheduleItems.get(scheduleItems.size() - 1);
+            scheduleItem.prev.next = scheduleItem.next;
+            scheduleItem.next.prev = prev;
+        }
+
         scheduleItems.remove(scheduleItem);
         this.sort();
         scheduleObservable.notifyObservers();
         try {
-            saveScheduleItems();
+            saveToFile();
         } catch (IOException e) {
             e.printStackTrace();
         }

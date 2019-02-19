@@ -10,11 +10,16 @@
             <item
                 android:id="@+id/nav_sn_notifications"
                 android:icon="@drawable/ic_notifications_black_24dp"
-                android:title="@string/title_notifications"/>
+                android:title="@string/title_notifications" />
+            <item
+                android:id="@+id/nav_sn_types"
+                android:icon="@drawable/ic_assignment_black_24dp"
+                android:title="提醒类型"
+                />
             <item
                 android:id="@+id/nav_sn_settings"
                 android:icon="@drawable/ic_settings_black_24dp"
-                android:title="设置"/>
+                android:title="设置" />
         </menu>
     </item>
 </menu>

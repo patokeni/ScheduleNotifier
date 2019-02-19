@@ -1,7 +1,6 @@
 package xianxian.center.schedulenotifier;
 
 import android.content.Context;
-import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -9,10 +8,10 @@ import android.widget.BaseAdapter;
 import android.widget.CheckBox;
 import android.widget.TextView;
 
-import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.Observable;
 import java.util.Observer;
 
@@ -111,7 +110,7 @@ public class Adapters {
                 schedules.remove(schedule);
                 return new View(mContext);
             }
-            convertView = layoutInflater.inflate(R.layout.layout_schedule, null);
+            convertView = layoutInflater.inflate(R.layout.listitem_sn_schedule, null);
 
             ViewHolder vh = new ViewHolder(convertView);
             vh.textViewScheduleName.setText(schedule.getName());
@@ -191,12 +190,13 @@ public class Adapters {
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
             LayoutInflater layoutInflater = LayoutInflater.from(context);
-            convertView = layoutInflater.inflate(R.layout.layout_schedule_item, null);
+            convertView = layoutInflater.inflate(R.layout.listitem_sn_schedule_item, null);
 
             if (convertView != null) {
                 ViewHolder viewHolder = new ViewHolder(convertView);
                 ScheduleItem scheduleItem = getItem(position);
-                viewHolder.scheduleItem.setText(scheduleItem.getDesc());
+                viewHolder.textViewName.setText(scheduleItem.getDesc());
+                viewHolder.textViewMessage.setText(scheduleItem.getMessage());
             }
             return convertView;
         }
@@ -225,9 +225,11 @@ public class Adapters {
                 notifyDataSetChanged();
         }
 
-        class ViewHolder {
-            @BindView(R2.id.scheduleItem)
-            TextView scheduleItem;
+        static class ViewHolder {
+            @BindView(R2.id.textViewName)
+            TextView textViewName;
+            @BindView(R2.id.textViewMessage)
+            TextView textViewMessage;
 
             ViewHolder(View view) {
                 ButterKnife.bind(this, view);
@@ -305,7 +307,7 @@ public class Adapters {
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
             LayoutInflater inflater = LayoutInflater.from(context);
-            convertView = inflater.inflate(R.layout.listitem_sn_schedule_item, null);
+            convertView = inflater.inflate(R.layout.listitem_sn_schedule_item_in_dashboard, null);
             ViewHolder vh = new ViewHolder(convertView);
             ScheduleItem scheduleItem = getItem(position);
             vh.textViewScheduleItemName.setText(scheduleItem.getDesc());
@@ -324,12 +326,8 @@ public class Adapters {
                 }
 
             } catch (Schedule.NoScheduleItemException e) {
-                Date now = null;
-                try {
-                    now = Schedule.SCHEDULE_TIME_FORMAT.parse(Schedule.SCHEDULE_TIME_FORMAT.format(new Date()));
-                } catch (ParseException e1) {
-                    e1.printStackTrace();
-                }
+                Date now = Schedules.getTime(new Date());
+
                 if (scheduleItem.getEndTimeDate().before(now)) {
                     vh.checkBoxDid.setChecked(true);
                 }
@@ -381,7 +379,17 @@ public class Adapters {
         }
     }
 
-    public static class SettingsAdapter extends BaseAdapter {
+    public static class TypesAdapter extends BaseAdapter implements IAdapter, Observer {
+        private Map<String, Type> types;
+        private Observable typesObservable;
+        private Context context;
+
+        public TypesAdapter(Context context) {
+            this.types = Types.getTypes();
+            this.typesObservable = Types.typesObservable;
+            this.typesObservable.addObserver(this);
+            this.context = context;
+        }
 
         /**
          * How many items are in the data set represented by this Adapter.
@@ -390,7 +398,7 @@ public class Adapters {
          */
         @Override
         public int getCount() {
-            return 0;
+            return types.size();
         }
 
         /**
@@ -401,8 +409,8 @@ public class Adapters {
          * @return The data at the specified position.
          */
         @Override
-        public Object getItem(int position) {
-            return null;
+        public Type getItem(int position) {
+            return types.get((types.keySet().toArray()[position]));
         }
 
         /**
@@ -413,7 +421,7 @@ public class Adapters {
          */
         @Override
         public long getItemId(int position) {
-            return 0;
+            return position;
         }
 
         /**
@@ -436,9 +444,47 @@ public class Adapters {
          */
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
-            convertView = new TextView(null);
-            ((TextView) convertView).setTextSize(TypedValue.COMPLEX_UNIT_DIP, 24);
-            return null;
+            convertView = LayoutInflater.from(context).inflate(R.layout.listitem_sn_type, null);
+            ViewHolder vh = new ViewHolder(convertView);
+
+            Type type = getItem(position);
+            vh.textViewTypeName.setText(type.getTypeName());
+            vh.textViewCustomMessage.setText(type.getMessage());
+            return convertView;
+        }
+
+        /**
+         * 当Adapter要被销毁时调用
+         */
+        @Override
+        public void onDestroy() {
+            typesObservable.deleteObserver(this);
+        }
+
+        /**
+         * This method is called whenever the observed object is changed. An
+         * application calls an <tt>Observable</tt> object's
+         * <code>notifyObservers</code> method to have all the object's
+         * observers notified of the change.
+         *
+         * @param o   the observable object.
+         * @param arg an argument passed to the <code>notifyObservers</code>
+         */
+        @Override
+        public void update(Observable o, Object arg) {
+            notifyDataSetChanged();
+        }
+
+        static
+        class ViewHolder {
+            @BindView(R2.id.textViewTypeName)
+            TextView textViewTypeName;
+            @BindView(R2.id.textViewCustomMessage)
+            TextView textViewCustomMessage;
+
+            ViewHolder(View view) {
+                ButterKnife.bind(this, view);
+            }
         }
     }
 }
