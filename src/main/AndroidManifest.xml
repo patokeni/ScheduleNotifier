@@ -1,5 +1,34 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="xianxian.center.schedulenotifier">
 
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.VIBRATE" />
+
+    <application>
+        <receiver
+            android:name=".AlarmReceiver"
+            android:enabled="true"
+            android:exported="false"
+            android:directBootAware="true">
+            <intent-filter>
+                <action android:name="xianxian.center.schedulenotifier.alarm.ScheduleItemStartAction"/>
+                <action android:name="xianxian.center.schedulenotifier.alarm.scheduleItemEndAction"/>
+                <action android:name="xianxian.center.schedulenotifier.alarm.nextDayAction"/>
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".StartupReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <service android:name=".NotifyService" />
+
+    </application>
+
 </manifest>

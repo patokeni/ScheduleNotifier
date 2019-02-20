@@ -1,12 +1,13 @@
 package xianxian.center.schedulenotifier;
 
 import android.support.annotation.NonNull;
-import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Observable;
 import java.util.Observer;
+
+import xianxian.center.MainLogger;
 
 public class ObserverDebug implements Observer {
     public static ObserverDebug INSTANCE = new ObserverDebug();
@@ -42,6 +43,6 @@ public class ObserverDebug implements Observer {
     @Override
     public void update(Observable o, Object arg) {
         if (BuildConfig.DEBUG)
-            Log.i("ObserverDebug", o + " " + arg);
+            MainLogger.i("ObserverDebug", o + " " + arg);
     }
 }

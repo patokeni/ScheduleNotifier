@@ -9,21 +9,19 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.support.annotation.Nullable;
 import android.support.v4.app.NotificationCompat;
-import android.util.Log;
 
 import java.util.Calendar;
-import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Observable;
 import java.util.Observer;
 
+import xianxian.center.MainLogger;
 import xianxian.center.ttsengine.TTSFactory;
 import xianxian.center.utils.ContextUtils;
 
@@ -41,12 +39,10 @@ public class NotifyService extends Service implements Observer {
     private static Schedule scheduleToday = null;
     private static ScheduleItem doingScheduleItem = null;
     private static Observable scheduleObservable;
-    
+
     private Notification notification;
-    private PendingIntent scheduleStartIntent;
-    private PendingIntent scheduleEndIntent;
-    private Calendar nextAlarm;
-    private Calendar endAlarm;
+    private PendingIntent nextAlarmIntent;
+    private AlarmManager.AlarmClockInfo nextAlarm;
     private PowerManager.WakeLock wakeLock;
     private AlarmReceiver alarmReceiver = new AlarmReceiver();
 
@@ -77,7 +73,7 @@ public class NotifyService extends Service implements Observer {
         onScheduleOfTodayChanged.addObserver(this);
         Schedules.dailySchedulesObservable.addObserver(this);
         Schedules.specificDaysObservable.addObserver(this);
-        Log.i(TAG, "Service is running");
+        MainLogger.i(TAG, "Notify Service is running");
         //先获取今天的计划表
         Schedule schedule = Schedules.getScheduleToday();
 
@@ -89,11 +85,7 @@ public class NotifyService extends Service implements Observer {
                 onScheduleOfTodayChanged.notifyObservers(schedule);
         }
 
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(AlarmReceiver.SCHEDULE_ITEM_START_ACTION);
-        filter.addAction(AlarmReceiver.NEXT_DAY_ACTION);
-        filter.addAction(AlarmReceiver.SCHEDULE_ITEM_END_ACTION);
-        registerReceiver(alarmReceiver, filter);
+
     }
 
     public void onTick() {
@@ -116,9 +108,6 @@ public class NotifyService extends Service implements Observer {
         //取消所有的Notification
         NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         notificationManager.cancelAll();
-
-        //AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
-        //alarmManager.cancel(scheduleStartIntent);
     }
 
     /**
@@ -155,14 +144,15 @@ public class NotifyService extends Service implements Observer {
     }
 
     private void checkNotify() {
-        Log.i(TAG, "Checking Notify start");
+        MainLogger.i(TAG, "Checking Notify start");
         checkNotify0();
-        Log.i(TAG, "Checking Notify end");
+        MainLogger.i(TAG, "Checking Notify end");
     }
 
+    //TODO: 考虑增加一个Activity来显示目前提醒
     private void checkNotify0() {
         //防止未提醒就进入休眠
-        wakeLock.acquire(1000 * 60 * 2);
+        wakeLock.acquire(1000 * 30);
 
         ScheduleItem nowScheduleItem = null;
         try {
@@ -180,15 +170,10 @@ public class NotifyService extends Service implements Observer {
                 onDoingScheduleItemChanged.notifyObservers(doingScheduleItem);
                 //如果需要提醒
                 if (nowScheduleItem.isNeedNotify()) {
-                    ContextUtils.vibrate(2000);
+                    ContextUtils.vibrateRepeat(new long[]{500,1000,500,1000,500,1000,500,1000},-1);
                     //获得模块对应的TTS引擎，并播放语音
                     TTSFactory.getEngine("sn").textToSpeech(nowScheduleItem.getMessage(), Locale.CHINESE);
-                }
-                ScheduleItem nextScheduleItem = scheduleToday.getNextScheduleItem();
-                if (nextScheduleItem == scheduleToday.tail || nextScheduleItem == null) {
-                    setNextDayAlarm();
-                } else {
-                    setStartAlarm(nextScheduleItem);
+                    MainLogger.i(TAG,"Vibrate and Text to speech for "+nowScheduleItem);
                 }
                 setEndAlarm(nowScheduleItem);
             }
@@ -200,44 +185,7 @@ public class NotifyService extends Service implements Observer {
                 setNextDayAlarm();
             }
         }
-
-        //更新提醒
-        NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        //当点击提醒时，跳出MainActivity
-        Intent intent = null;
-        try {
-            //暂时不想解决这个问题
-            intent = new Intent(this.getApplicationContext(), Class.forName("xianxian.center.main.MainActivity"));
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        }
-        intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent pendingIntent = PendingIntent.getActivity(this.getApplicationContext(), 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
-
-        NotificationCompat.Builder builder;
-
-        String scheduleItemInfo = doingScheduleItem != null ? "正在" + doingScheduleItem.getType() : "当前无计划";
-
-        //尝试兼容Android O(但也许不工作，我没有8.0的机子，没法测试)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel mChannel = new NotificationChannel("channel_1", "ScheduleNotifier", NotificationManager.IMPORTANCE_DEFAULT);
-            notificationManager.createNotificationChannel(mChannel);
-            builder = new NotificationCompat.Builder(this.getApplicationContext(), mChannel.getId())
-                    .setSmallIcon(R.mipmap.ic_launcher)
-                    .setContentTitle("计划通知")
-                    .setContentText(scheduleItemInfo + " " + "今天的计划表为" + scheduleToday.getName())
-                    .setContentIntent(pendingIntent);
-        } else {
-            builder = new NotificationCompat.Builder(this.getApplicationContext())
-                    .setSmallIcon(R.mipmap.ic_launcher)
-                    .setContentTitle("计划通知")
-                    .setContentText(scheduleItemInfo + " " + "今天的计划表为" + scheduleToday.getName())
-                    .setContentIntent(pendingIntent);
-        }
-        notification = builder.build();
-        notification.flags |= Notification.FLAG_NO_CLEAR;
-        notificationManager.notify(NOTIFICATION_ID, notification);
-
+        updateNotification(nowScheduleItem);
     }
 
     /**
@@ -268,19 +216,13 @@ public class NotifyService extends Service implements Observer {
         }
     }
 
-    private void setAlarm(long time, PendingIntent intent) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, time, intent);
-        } else {
-            AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
-            alarmManager.setExact(AlarmManager.RTC_WAKEUP, time, intent);
-        }
+    private void setAlarm(AlarmManager.AlarmClockInfo clockInfo, PendingIntent intent) {
+        AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
+        alarmManager.setAlarmClock(clockInfo,intent);
     }
 
     private void setStartAlarm(ScheduleItem scheduleItem) {
-        cancelStartAlarm();
-        scheduleStartIntent = PendingIntent.getBroadcast(this.getApplicationContext(), 0, new Intent(AlarmReceiver.SCHEDULE_ITEM_START_ACTION), PendingIntent.FLAG_CANCEL_CURRENT);
+        cancelNextAlarm();
         Calendar nextCalendar = Calendar.getInstance();
         nextCalendar.setTime(scheduleItem.getStartTimeDate());
 
@@ -289,31 +231,55 @@ public class NotifyService extends Service implements Observer {
         nextAlarmTime.set(Calendar.MINUTE, nextCalendar.get(Calendar.MINUTE));
         nextAlarmTime.set(Calendar.SECOND, 0);
         nextAlarmTime.set(Calendar.MILLISECOND, 0);
-        setAlarm(nextAlarmTime.getTimeInMillis(), scheduleStartIntent);
-        nextAlarm = nextAlarmTime;
 
-        Log.i(TAG, "Next Schedule Item Alarm has scheduled " + nextAlarmTime.toString());
+        Intent intent = new Intent(AlarmReceiver.SCHEDULE_ITEM_START_ACTION);
+        intent.setFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
+        intent.setPackage(getPackageName());
+        intent.putExtra("Alarm",nextAlarmTime);
+        nextAlarmIntent = PendingIntent.getBroadcast(this.getApplicationContext(), 0, intent, PendingIntent.FLAG_CANCEL_CURRENT);
+        AlarmManager.AlarmClockInfo nextDayAlarm = new AlarmManager.AlarmClockInfo(nextAlarmTime.getTimeInMillis(),null);
+        setAlarm(nextDayAlarm, nextAlarmIntent);
+        this.nextAlarm = nextDayAlarm;
+        MainLogger.i(TAG, "Next Schedule Item Alarm has scheduled at " +
+                String.format(Locale.getDefault(),"%d-%d-%d|%d:%d",
+                        nextAlarmTime.get(Calendar.YEAR),
+                        nextAlarmTime.get(Calendar.MONTH) + 1,
+                        nextAlarmTime.get(Calendar.DAY_OF_MONTH),
+                        nextAlarmTime.get(Calendar.HOUR_OF_DAY),
+                        nextAlarmTime.get(Calendar.MINUTE))
+        );
 
     }
 
     private void setNextDayAlarm() {
-        cancelStartAlarm();
-        scheduleStartIntent = PendingIntent.getBroadcast(this.getApplicationContext(), 0, new Intent(AlarmReceiver.NEXT_DAY_ACTION), PendingIntent.FLAG_CANCEL_CURRENT);
-        Calendar calendar = Calendar.getInstance();
-        calendar.add(Calendar.DAY_OF_MONTH, 1);
-        calendar.set(Calendar.HOUR_OF_DAY, 0);
-        calendar.set(Calendar.MINUTE, 0);
-        calendar.set(Calendar.SECOND, 0);
-        calendar.set(Calendar.MILLISECOND, 0);
-        setAlarm(calendar.getTimeInMillis(), scheduleStartIntent);
-        nextAlarm = calendar;
-        Log.i(TAG, "Next day alarm has scheduled " + calendar.toString());
+        cancelNextAlarm();
+        Calendar nextDayAlarmTime = Calendar.getInstance();
+        nextDayAlarmTime.add(Calendar.DAY_OF_MONTH, 1);
+        nextDayAlarmTime.set(Calendar.HOUR_OF_DAY, 0);
+        nextDayAlarmTime.set(Calendar.MINUTE, 0);
+        nextDayAlarmTime.set(Calendar.SECOND, 0);
+        nextDayAlarmTime.set(Calendar.MILLISECOND, 0);
+
+        Intent intent = new Intent(AlarmReceiver.NEXT_DAY_ACTION);
+        intent.setFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
+        intent.setPackage(getPackageName());
+        intent.putExtra("Alarm",nextDayAlarmTime);
+        nextAlarmIntent = PendingIntent.getBroadcast(this.getApplicationContext(), 0, intent, PendingIntent.FLAG_CANCEL_CURRENT);
+        AlarmManager.AlarmClockInfo nextAlarm = new AlarmManager.AlarmClockInfo(nextDayAlarmTime.getTimeInMillis(),null);
+        setAlarm(nextAlarm, nextAlarmIntent);
+        this.nextAlarm = nextAlarm;
+        MainLogger.i(TAG, "Next day alarm has scheduled at " +
+                String.format(Locale.getDefault(),"%d-%d-%d|%d:%d",
+                        nextDayAlarmTime.get(Calendar.YEAR),
+                        nextDayAlarmTime.get(Calendar.MONTH) + 1,
+                        nextDayAlarmTime.get(Calendar.DAY_OF_MONTH),
+                        nextDayAlarmTime.get(Calendar.HOUR_OF_DAY),
+                        nextDayAlarmTime.get(Calendar.MINUTE))
+        );
     }
 
     private void setEndAlarm(ScheduleItem scheduleItem) {
-        cancelEndAlarm();
-        scheduleEndIntent = PendingIntent.getBroadcast(this.getApplicationContext(), 0, new Intent(AlarmReceiver.SCHEDULE_ITEM_END_ACTION), PendingIntent.FLAG_CANCEL_CURRENT);
-
+        cancelNextAlarm();
         Calendar endCalendar = Calendar.getInstance();
         endCalendar.setTime(scheduleItem.getEndTimeDate());
         Calendar endAlarmTime = Calendar.getInstance();
@@ -321,24 +287,77 @@ public class NotifyService extends Service implements Observer {
         endAlarmTime.set(Calendar.MINUTE, endCalendar.get(Calendar.MINUTE));
         endAlarmTime.set(Calendar.SECOND, 0);
         endAlarmTime.set(Calendar.MILLISECOND, 0);
-        setAlarm(endAlarmTime.getTimeInMillis(), scheduleEndIntent);
-        endAlarm = endAlarmTime;
-        Log.i(TAG, "The Schedule Item end with " + endAlarmTime.toString());
+
+        Intent intent = new Intent(AlarmReceiver.SCHEDULE_ITEM_END_ACTION);
+        intent.setFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES);
+        intent.setPackage(getPackageName());
+        intent.putExtra("Alarm",endAlarmTime);
+        nextAlarmIntent = PendingIntent.getBroadcast(this.getApplicationContext(), 0, intent, PendingIntent.FLAG_CANCEL_CURRENT);
+        AlarmManager.AlarmClockInfo endAlarm = new AlarmManager.AlarmClockInfo(endAlarmTime.getTimeInMillis(),null);
+        setAlarm(endAlarm, nextAlarmIntent);
+        this.nextAlarm = endAlarm;
+
+        MainLogger.i(TAG, "The Schedule Item end with " + String.format(Locale.getDefault(),"%d-%d-%d|%d:%d",
+                endAlarmTime.get(Calendar.YEAR),
+                endAlarmTime.get(Calendar.MONTH) + 1,
+                endAlarmTime.get(Calendar.DAY_OF_MONTH),
+                endAlarmTime.get(Calendar.HOUR_OF_DAY),
+                endAlarmTime.get(Calendar.MINUTE))
+        );
     }
 
-    private void cancelStartAlarm() {
-        if (scheduleStartIntent != null) {
-            ((AlarmManager) getSystemService(ALARM_SERVICE)).cancel(scheduleStartIntent);
-            scheduleStartIntent = null;
-            Log.i(TAG, "Alarm " + nextAlarm + " canceled");
+    private void cancelNextAlarm() {
+        if (nextAlarmIntent != null) {
+            ((AlarmManager) getSystemService(ALARM_SERVICE)).cancel(nextAlarmIntent);
+            nextAlarmIntent = null;
+            Calendar nextAlarmTime = Calendar.getInstance();
+            nextAlarmTime.setTimeInMillis(this.nextAlarm.getTriggerTime());
+            MainLogger.i(TAG, "Alarm " + String.format(Locale.getDefault(),"%d-%d-%d|%d:%d",
+                    nextAlarmTime.get(Calendar.YEAR),
+                    nextAlarmTime.get(Calendar.MONTH),
+                    nextAlarmTime.get(Calendar.DAY_OF_MONTH),
+                    nextAlarmTime.get(Calendar.HOUR_OF_DAY),
+                    nextAlarmTime.get(Calendar.MINUTE)) + " canceled");
+            this.nextAlarm = null;
         }
     }
 
-    private void cancelEndAlarm() {
-        if (scheduleEndIntent != null) {
-            ((AlarmManager) getSystemService(ALARM_SERVICE)).cancel(scheduleEndIntent);
-            scheduleEndIntent = null;
-            Log.i(TAG, "Alarm " + endAlarm + " canceled");
+    private void updateNotification(ScheduleItem scheduleItem) {
+        //更新提醒
+        NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        //当点击提醒时，跳出MainActivity
+        Intent intent = null;
+        try {
+            //暂时不想解决这个问题
+            intent = new Intent(this.getApplicationContext(), Class.forName("xianxian.center.main.MainActivity"));
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
         }
+        intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent pendingIntent = PendingIntent.getActivity(this.getApplicationContext(), 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+        NotificationCompat.Builder builder;
+
+        String scheduleItemInfo = scheduleItem != null ? "正在" + scheduleItem.getType().getTypeName() : "当前无计划";
+
+        //尝试兼容Android O(但也许不工作，我没有8.0的机子，没法测试)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel mChannel = new NotificationChannel("channel_1", "ScheduleNotifier", NotificationManager.IMPORTANCE_DEFAULT);
+            notificationManager.createNotificationChannel(mChannel);
+            builder = new NotificationCompat.Builder(this.getApplicationContext(), mChannel.getId())
+                    .setSmallIcon(R.mipmap.ic_launcher)
+                    .setContentTitle("计划通知")
+                    .setContentText(scheduleItemInfo + " " + "今天的计划表为" + scheduleToday.getName())
+                    .setContentIntent(pendingIntent);
+        } else {
+            builder = new NotificationCompat.Builder(this.getApplicationContext())
+                    .setSmallIcon(R.mipmap.ic_launcher)
+                    .setContentTitle("计划通知")
+                    .setContentText(scheduleItemInfo + " " + "今天的计划表为" + scheduleToday.getName())
+                    .setContentIntent(pendingIntent);
+        }
+        notification = builder.build();
+        notification.flags |= Notification.FLAG_NO_CLEAR;
+        notificationManager.notify(NOTIFICATION_ID, notification);
     }
 }

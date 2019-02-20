@@ -197,6 +197,12 @@ public class Adapters {
                 ScheduleItem scheduleItem = getItem(position);
                 viewHolder.textViewName.setText(scheduleItem.getDesc());
                 viewHolder.textViewMessage.setText(scheduleItem.getMessage());
+
+                if (!scheduleItem.isNeedNotify()) {
+                    viewHolder.textViewMessage.getPaint().setFakeBoldText(true);
+                    viewHolder.textViewMessage.append("(不需要提醒)");
+                }
+
             }
             return convertView;
         }

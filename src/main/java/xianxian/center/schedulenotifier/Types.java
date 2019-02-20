@@ -1,6 +1,5 @@
 package xianxian.center.schedulenotifier;
 
-import android.util.Log;
 import android.util.Xml;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -32,13 +31,10 @@ public class Types {
     }
 
     public static Map<String, Type> parseTypesConfig() {
-        InputStream is = null;
         if (FileUtils.isFileEmpty(Constants.SCHEDULE_TYPES))
             return types;
 
-        try {
-            is = new FileInputStream(Constants.SCHEDULE_TYPES);
-
+        try (InputStream is = new FileInputStream(Constants.SCHEDULE_TYPES)){
             XmlPullParser xmlPullParser = Xml.newPullParser();
 
             xmlPullParser.setInput(is, "utf-8");
@@ -62,16 +58,8 @@ public class Types {
                 }
                 eventType = xmlPullParser.next();
             }
-        } catch (IOException e) {
-            Log.e("Center/SN", e.getLocalizedMessage(), e);
-        } catch (XmlPullParserException e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                is.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+        } catch (IOException |XmlPullParserException e) {
+            //no-op
         }
         return types;
     }

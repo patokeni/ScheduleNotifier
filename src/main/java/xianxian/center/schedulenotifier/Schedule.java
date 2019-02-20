@@ -1,6 +1,5 @@
 package xianxian.center.schedulenotifier;
 
-import android.util.Log;
 import android.util.Xml;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -24,6 +23,7 @@ import java.util.Locale;
 import java.util.Observable;
 
 import xianxian.center.Constants;
+import xianxian.center.MainLogger;
 import xianxian.center.utils.FileUtils;
 
 public class Schedule implements Serializable {
@@ -229,7 +229,7 @@ public class Schedule implements Serializable {
 
             while (eventType != XmlPullParser.END_DOCUMENT) {
                 String tag = xmlPullParser.getName();
-                //Log.d("Center/SN", "Tag: " + tag);
+                //MainLogger.d("Center/SN", "Tag: " + tag);
                 switch (eventType) {
                     case XmlPullParser.START_TAG:
                         if ("Schedule".equals(tag)) ;
@@ -263,10 +263,8 @@ public class Schedule implements Serializable {
                 eventType = xmlPullParser.next();
             }
             this.sort();
-        } catch (IOException e) {
-            Log.e("Center/SN", e.getLocalizedMessage(), e);
-        } catch (XmlPullParserException e) {
-            Log.e("Center/SN", e.getLocalizedMessage(), e);
+        } catch (IOException | XmlPullParserException e) {
+            //no-op
         }
     }
 

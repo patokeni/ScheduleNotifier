@@ -19,6 +19,7 @@ import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.Spinner;
 
+import java.io.IOException;
 import java.util.Objects;
 
 import butterknife.BindView;
@@ -239,6 +240,29 @@ public class NotificationsFragment extends Fragment implements IFragment {
                                     //FIXED:这里显示时不知为何会报IllegalStateException
                                     .show();
 
+                        } else if (menuItem.getItemId() == R.id.menu_sn_schedule_oper_rename) {
+                            Schedule schedule = (Schedule) adapterView.getItemAtPosition(pos);
+
+                            EditText editText = new EditText(getContext());
+                            editText.setHint("输入新名称");
+                            editText.setText(schedule.getName());
+                            new AlertDialog.Builder(getContext())
+                                    .setTitle("请输入新名称")
+                                    .setView(editText)
+                                    .setPositiveButton("确定", (dialog, which) -> {
+                                        schedule.setName(editText.getText().toString());
+                                        try {
+                                            Schedules.saveSchedules();
+                                        } catch (IOException e) {
+                                            e.printStackTrace();
+                                        }
+                                        dialog.cancel();
+                                    })
+                                    .setNegativeButton("取消", (dialog, whick) -> {
+                                        dialog.cancel();
+                                    })
+                                    .show();
+
                         } else if (menuItem.getItemId() == R.id.menu_sn_schedule_oper_delete) {
                             Schedule schedule = (Schedule) adapterView.getItemAtPosition(pos);
 
@@ -282,6 +306,7 @@ public class NotificationsFragment extends Fragment implements IFragment {
                         } else if (menuItem.getItemId() == R.id.menu_sn_schedule_item_oper_set_custom_message) {
                             EditText editText = new EditText(getContext());
                             editText.setHint("输入自定义提醒");
+                            editText.setText(scheduleItem.getMessage());
                             new AlertDialog.Builder(getContext())
                                     .setTitle("设置自定义提醒")
                                     .setView(editText)

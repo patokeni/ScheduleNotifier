@@ -1,5 +1,6 @@
 package xianxian.center.schedulenotifier;
 
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -29,6 +30,7 @@ import butterknife.Unbinder;
 import xianxian.center.main.Callback;
 import xianxian.center.main.IFragment;
 import xianxian.center.main.Main;
+import xianxian.center.ttsengine.TTSFactory;
 import xianxian.center.utils.DateUtils;
 
 public class DashboardFragment extends Fragment implements Observer, IFragment {
@@ -77,7 +79,7 @@ public class DashboardFragment extends Fragment implements Observer, IFragment {
             e.printStackTrace();
         }
         //TTSFactory.getEngine("sn").textToSpeech(DateUtils.format(year, actuallyMonth, dayOfMonth),Locale.CHINESE);
-        this.getContext().startService(new Intent(this.getContext(), NotifyService.class));
+        //this.getContext().startService(new Intent(this.getContext(), NotifyService.class));
         showContextMenu(view, "这天的计划表为:" + schedule.getName(), R.menu.menu_sn_calendar_operation, new Callback() {
             @Override
             public boolean Do(Object... objects) {

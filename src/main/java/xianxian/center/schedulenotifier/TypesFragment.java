@@ -9,11 +9,17 @@ import android.support.v4.app.Fragment;
 import android.support.v7.app.AlertDialog;
 import android.view.ContextMenu;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.ListView;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
@@ -34,9 +40,6 @@ public class TypesFragment extends Fragment implements IFragment {
     ListView listViewTypes;
     Unbinder unbinder;
     Adapters.TypesAdapter typesAdapter;
-    private Callback onContextMenuSelected;
-    private int contextMenuRes;
-    private String contextMenuTitle;
 
     @Nullable
     @Override
@@ -107,6 +110,63 @@ public class TypesFragment extends Fragment implements IFragment {
         });
         return true;
     }
+
+    @Override
+    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+        super.onCreateOptionsMenu(menu, inflater);
+        inflater.inflate(R.menu.optionmenu_sn_types,menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.optionmenu_sn_types_clean) {
+            List<Type> uselessType = new ArrayList<>();
+            StringBuilder stringBuilder = new StringBuilder("注意，下列类型将被删除\n");
+            for (String typeName : Types.getTypes().keySet()) {
+                Type type = Types.getTypes().get(typeName);
+                if (!type.hasUser()) {
+                    uselessType.add(type);
+                    stringBuilder.append(typeName).append("\n");
+                }
+            }
+            new AlertDialog.Builder(getContext())
+                    .setTitle("确定？")
+                    .setMessage(stringBuilder.toString())
+                    .setPositiveButton("清除", (dialog, which) -> {
+                        for (Type type : uselessType) {
+                            Types.getTypes().remove(type.getTypeName());
+                        }
+                        try {
+                            Types.saveTypes();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                        Main.getMainActivity().prepareSnackbar("已清除",Snackbar.LENGTH_LONG)
+                                .setAction("撤销",(view)->{
+                                    for (Type type :
+                                            uselessType) {
+                                        //因为Types中所有的增删改都会保存一次，太耗时，所以直接修改
+                                        Types.getTypes().put(type.getTypeName(),type);
+                                        try {
+                                            Types.saveTypes();
+                                        } catch (IOException e) {
+                                            e.printStackTrace();
+                                        }
+                                    }
+                                })
+                                .show();
+                    })
+                    .setNegativeButton("取消", ((dialog, which) -> {
+                        dialog.cancel();
+                    }))
+                    .show();
+        }
+        return true;
+    }
+
+    private Callback onContextMenuSelected;
+    private int contextMenuRes;
+    private String contextMenuTitle;
 
     private void showContextMenu(View view, String title, @MenuRes int menuRes, Callback onContextMenuSelected) {
         this.onContextMenuSelected = onContextMenuSelected;

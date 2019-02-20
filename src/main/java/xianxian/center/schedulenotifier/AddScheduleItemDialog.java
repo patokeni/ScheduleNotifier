@@ -10,6 +10,7 @@ import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import java.io.IOException;
 import java.text.ParseException;
 import java.util.Calendar;
 
@@ -120,6 +121,11 @@ public class AddScheduleItemDialog {
                         scheduleItem.setEndTime(endTime);
                         scheduleItem.setType(editTextType.getText().toString());
                         scheduleItem.setNeedNotify(checkBoxNeedNotify.isChecked());
+                        try {
+                            scheduleItem.parent.saveToFile();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
                         callback.onComplete(scheduleItem);
                     }
                     unbinder.unbind();

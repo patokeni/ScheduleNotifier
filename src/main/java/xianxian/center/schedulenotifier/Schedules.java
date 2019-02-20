@@ -1,6 +1,5 @@
 package xianxian.center.schedulenotifier;
 
-import android.util.Log;
 import android.util.Xml;
 
 import org.xmlpull.v1.XmlPullParser;
@@ -119,10 +118,8 @@ public class Schedules implements Observer {
 
                 eventType = xmlPullParser.next();
             }
-        } catch (IOException e) {
-            Log.e("Center/SN", e.getLocalizedMessage(), e);
-        } catch (XmlPullParserException e) {
-            e.printStackTrace();
+        } catch (IOException |XmlPullParserException e) {
+            //no-op
         }
         return schedules;
     }
@@ -205,10 +202,8 @@ public class Schedules implements Observer {
                 }
                 eventType = xmlPullParser.next();
             }
-        } catch (IOException e) {
-            Log.e("Center/SN", e.getLocalizedMessage(), e);
-        } catch (XmlPullParserException e) {
-            e.printStackTrace();
+        } catch (IOException |XmlPullParserException e) {
+            //no-op
         } finally {
             try {
                 is.close();
@@ -280,10 +275,8 @@ public class Schedules implements Observer {
                 }
                 eventType = xmlPullParser.next();
             }
-        } catch (IOException e) {
-            Log.e("Center/SN", e.getLocalizedMessage(), e);
-        } catch (XmlPullParserException e) {
-            e.printStackTrace();
+        } catch (IOException |XmlPullParserException e) {
+            //no-op
         } finally {
             try {
                 is.close();
